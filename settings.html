@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Settings - Divya Agro Farms</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f8f9fa; }
+        .sidebar { height: 100vh; background-color: #212529; color: white; position: fixed; width: 250px; }
+        .sidebar .brand { padding: 20px; font-size: 1.25rem; font-weight: bold; color: #198754; text-align: center; border-bottom: 1px solid #343a40; }
+        .sidebar a { color: #adb5bd; text-decoration: none; padding: 12px 20px; display: block; font-size: 0.95rem; }
+        .sidebar a:hover, .sidebar a.active { background-color: #198754; color: white; border-radius: 4px; margin: 0 10px; padding: 12px 10px; }
+        .main-content { margin-left: 250px; padding: 30px; }
+        .admin-only { display: none; }
+    </style>
+</head>
+<body>
+
+    <!-- Sidebar -->
+    <div class="sidebar">
+        <div class="brand">Divya Agro Farms</div>
+        <div class="mt-3">
+            <a href="dashboard.html">🏠 Dashboard</a>
+            <a href="customers.html">👥 Customers</a>
+            <a href="settings.html" class="active admin-only">⚙️ Settings</a>
+        </div>
+        <div style="position: absolute; bottom: 20px; width: 100%; text-align: center;">
+            <button class="btn btn-outline-danger btn-sm w-75" onclick="logout()">Logout</button>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="main-content">
+        <div class="d-flex justify-content-between align-items-center pb-3 border-bottom mb-4">
+            <h2>Application Settings</h2>
+            <button id="edit-btn" class="btn btn-primary admin-only" onclick="toggleEditMode(true)">✏️ Edit Settings</button>
+        </div>
+        
+        <div class="card shadow-sm" style="max-width: 600px;">
+            <div class="card-header bg-dark text-white">
+                Company Profile
+            </div>
+            <div class="card-body">
+                <div id="alert-box" class="alert d-none"></div>
+                <form id="settings-form">
+                    <div class="mb-3">
+                        <label class="form-label text-muted small mb-1">Company Name</label>
+                        <input type="text" class="form-control settings-input" id="company_name" required disabled>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label text-muted small mb-1">Business Address</label>
+                        <textarea class="form-control settings-input" id="business_address" rows="3" required disabled></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label text-muted small mb-1">GSTIN</label>
+                        <input type="text" class="form-control settings-input" id="gstin" disabled>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label text-muted small mb-1">Invoice Prefix</label>
+                        <input type="text" class="form-control settings-input" id="invoice_prefix" required disabled>
+                    </div>
+                    <div class="mb-4">
+                        <label class="form-label text-muted small mb-1">Google Drive Folder ID (For PDFs)</label>
+                        <input type="text" class="form-control settings-input" id="gdrive_folder_id" disabled>
+                    </div>
+                    
+                    <div class="d-flex gap-2">
+                        <button type="button" class="btn btn-secondary w-50 d-none" id="cancel-btn" onclick="cancelEdit()">Cancel</button>
+                        <button type="submit" class="btn btn-success w-50 d-none" id="save-btn">Save Configuration</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const SUPABASE_URL = 'https://tnsyqmjwlbfxnbtgeols.supabase.co/';
+        const SUPABASE_ANON_KEY = 'sb_publishable_YabrAV_WOZwybhr81HFOHg_yw5E9Yj2';
+        const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        let cachedSettings = {};
+
+        async function checkAuth() {
+            const { data: { session } } = await supabaseClient.auth.getSession();
+            if (!session) return window.location.href = './index.html'; 
+            
+            const { data: profile } = await supabaseClient.from('profiles').select('role').eq('id', session.user.id).single();
+            if (profile && profile.role === 'Admin') {
+                document.querySelectorAll('.admin-only').forEach(el => el.style.display = 'block');
+                loadSettings();
+            } else {
+                document.querySelector('.main-content').innerHTML = <div class="alert alert-danger">Access Denied. Administrator privileges required.</div>;
+            }
+        }
+
+        async function loadSettings() {
+            const { data, error } = await supabaseClient.from('settings').select('*').eq('id', 1).single();
+            if (data) {
+                cachedSettings = data; // Store data for cancel button
+                populateFields(data);
+            }
+        }
+
+        function populateFields(data) {
+            document.getElementById('company_name').value = data.company_name || '';
+            document.getElementById('business_address').value = data.business_address || '';
+            document.getElementById('gstin').value = data.gstin || '';
+            document.getElementById('invoice_prefix').value = data.invoice_prefix || '';
+            document.getElementById('gdrive_folder_id').value = data.gdrive_folder_id || '';
+        }
+
+        function toggleEditMode(isEditing) {
+            const inputs = document.querySelectorAll('.settings-input');
+            inputs.forEach(input => input.disabled = !isEditing);
+            
+            document.getElementById('edit-btn').classList.toggle('d-none', isEditing);
+            document.getElementById('save-btn').classList.toggle('d-none', !isEditing);
+            document.getElementById('cancel-btn').classList.toggle('d-none', !isEditing);
+            document.getElementById('alert-box').classList.add('d-none');
+        }
+
+        function cancelEdit() {
+            populateFields(cachedSettings); // Revert to original data
+            toggleEditMode(false);
+        }
+
+        document.getElementById('settings-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const btn = document.getElementById('save-btn');
+            const alertBox = document.getElementById('alert-box');
+            btn.disabled = true;
+            btn.innerText = 'Saving...';
+
+            const updates = {
+                company_name: document.getElementById('company_name').value,
+                business_address: document.getElementById('business_address').value,
+                gstin: document.getElementById('gstin').value,
+                invoice_prefix: document.getElementById('invoice_prefix').value,
+                gdrive_folder_id: document.getElementById('gdrive_folder_id').value
+            };
+
+            const { data, error } = await supabaseClient.from('settings').update(updates).eq('id', 1).select();
+
+            alertBox.classList.remove('d-none', 'alert-success', 'alert-danger');
+            if (error) {
+                alertBox.classList.add('alert-danger');
+                alertBox.innerText = 'Error: ' + error.message;
+            } else {
+                cachedSettings = updates; // Update cache
+                alertBox.classList.add('alert-success');
+                alertBox.innerText = 'Configuration saved successfully!';
+                toggleEditMode(false);
+            }
+            
+            btn.disabled = false;
+            btn.innerText = 'Save Configuration';
+        });
+
+        async function logout() {
+            await supabaseClient.auth.signOut();
+            window.location.href = './index.html';
+        }
+
+        checkAuth();
+    </script>
+</body>
+</html>
