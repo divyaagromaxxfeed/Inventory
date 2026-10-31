@@ -85,15 +85,23 @@
     }
 
     function loadModule(moduleName) {
-    document.querySelectorAll('.sidebar a').forEach(a => a.classList.remove('active'));
-    event.target.classList.add('active');
+    // 1. Safely update the active sidebar link
+    document.querySelectorAll('.sidebar a').forEach(a => {
+        a.classList.remove('active');
+        if (a.getAttribute('href') === '#' + moduleName) {
+            a.classList.add('active');
+        }
+    });
 
     const container = document.getElementById('app-container');
     
+    // 2. Route to the correct module
     if (moduleName === 'customers') {
         renderCustomerUI(container);
+    } else if (moduleName === 'dashboard') {
+        container.innerHTML = <div class="module-header"><h2>DASHBOARD</h2></div><p>Welcome to Divya Agro Farms ERP.</p>;
     } else {
-        container.innerHTML = <div class="module-header"><h2>${moduleName.toUpperCase()}</h2></div><p>Coming soon...</p>;
+        container.innerHTML = <div class="module-header"><h2>${moduleName.toUpperCase()}</h2></div><p>Module coming soon...</p>;
     }
 }
 
