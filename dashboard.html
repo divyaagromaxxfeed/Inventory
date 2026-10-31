@@ -46,59 +46,59 @@
     </div>
 
     <script>
-        // Initialize Supabase
-        const SUPABASE_URL = 'https://tnsyqmjwlbfxnbtgeols.supabase.co/';
-        const SUPABASE_ANON_KEY = 'sb_publishable_YabrAV_WOZwybhr81HFOHg_yw5E9Yj2';
-        const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    // Insert your URL and Key
+    const SUPABASE_URL = 'https://tnsyqmjwlbfxnbtgeols.supabase.co/';
+    const SUPABASE_ANON_KEY = 'sb_publishable_YabrAV_WOZwybhr81HFOHg_yw5E9Yj2';
+    
+    // CHANGED: Use supabaseClient
+    const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    
+    let currentUserRole = 'Manager';
+
+    async function checkAuth() {
+        // CHANGED: supabaseClient
+        const { data: { session }, error } = await supabaseClient.auth.getSession();
+        if (!session) {
+            window.location.href = './index.html'; 
+            return;
+        }
         
-        let currentUserRole = 'Manager'; // Default fallback
-
-        async function checkAuth() {
-            const { data: { session }, error } = await supabase.auth.getSession();
-            if (!session) {
-                // Redirect to a login.html (to be created)
-                window.location.href = 'index.html'; 
-                return;
-            }
+        // CHANGED: supabaseClient
+        const { data: profile } = await supabaseClient
+            .from('profiles')
+            .select('role')
+            .eq('id', session.user.id)
+            .single();
             
-            // Fetch User Role
-            const { data: profile } = await supabase
-                .from('profiles')
-                .select('role')
-                .eq('id', session.user.id)
-                .single();
-                
-            if (profile) {
-                currentUserRole = profile.role;
-                applyRBAC();
-            }
-            
-            loadModule('dashboard'); // Default view
+        if (profile) {
+            currentUserRole = profile.role;
+            applyRBAC();
         }
+        
+        loadModule('dashboard'); 
+    }
 
-        function applyRBAC() {
-            if (currentUserRole === 'Admin') {
-                document.querySelectorAll('.admin-only').forEach(el => el.style.display = 'block');
-            }
+    function applyRBAC() {
+        if (currentUserRole === 'Admin') {
+            document.querySelectorAll('.admin-only').forEach(el => el.style.display = 'block');
         }
+    }
 
-        function loadModule(moduleName) {
-            // Update active state
-            document.querySelectorAll('.sidebar a').forEach(a => a.classList.remove('active'));
-            event.target.classList.add('active');
+    function loadModule(moduleName) {
+        document.querySelectorAll('.sidebar a').forEach(a => a.classList.remove('active'));
+        event.target.classList.add('active');
 
-            // Placeholder for module routing (we will build distinct JS functions for each)
-            const container = document.getElementById('app-container');
-            container.innerHTML = <div class="module-header"><h2>${moduleName.toUpperCase()}</h2></div><p>Module logic will load here.</p>;
-        }
+        const container = document.getElementById('app-container');
+        container.innerHTML = <div class="module-header"><h2>${moduleName.toUpperCase()}</h2></div><p>Module logic will load here.</p>;
+    }
 
-        async function logout() {
-            await supabase.auth.signOut();
-            window.location.href = 'index.html';
-        }
+    async function logout() {
+        // CHANGED: supabaseClient
+        await supabaseClient.auth.signOut();
+        window.location.href = './index.html';
+    }
 
-        // Boot
-        checkAuth();
-    </script>
+    checkAuth();
+</script>
 </body>
 </html>
