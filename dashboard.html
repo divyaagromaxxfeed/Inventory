@@ -85,12 +85,89 @@
     }
 
     function loadModule(moduleName) {
-        document.querySelectorAll('.sidebar a').forEach(a => a.classList.remove('active'));
-        event.target.classList.add('active');
+    document.querySelectorAll('.sidebar a').forEach(a => a.classList.remove('active'));
+    event.target.classList.add('active');
 
-        const container = document.getElementById('app-container');
-        container.innerHTML = <div class="module-header"><h2>${moduleName.toUpperCase()}</h2></div><p>Module logic will load here.</p>;
+    const container = document.getElementById('app-container');
+    
+    if (moduleName === 'customers') {
+        renderCustomerUI(container);
+    } else {
+        container.innerHTML = <div class="module-header"><h2>${moduleName.toUpperCase()}</h2></div><p>Coming soon...</p>;
     }
+}
+
+function renderCustomerUI(container) {
+    container.innerHTML = `
+        <div class="module-header">
+            <h2>Customer Management</h2>
+            <button class="btn btn-primary" onclick="addCustomer()">+ New Customer</button>
+        </div>
+        <div class="table-responsive">
+            <table class="table table-bordered align-middle">
+                <thead class="table-dark">
+                    <tr>
+                        <th>Name</th>
+                        <th>Phone</th>
+                        <th>Address</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="customer-list">
+                    <tr><td colspan="4" class="text-center">Loading data...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    `;
+    fetchCustomers();
+}
+
+async function fetchCustomers() {
+    const { data, error } = await supabaseClient.from('customers').select('*').order('created_at', { ascending: false });
+    const tbody = document.getElementById('customer-list');
+    
+    if (error) {
+        tbody.innerHTML = <tr><td colspan="4" class="text-danger">Error loading customers</td></tr>;
+        return;
+    }
+    
+    tbody.innerHTML = data.map(c => `
+        <tr>
+            <td>${c.name}</td>
+            <td>${c.phone || '-'}</td>
+            <td>${c.address || '-'}</td>
+            <td>
+                <button class="btn btn-sm btn-outline-danger ${currentUserRole !== 'Admin' ? 'd-none' : ''}" onclick="deleteCustomer('${c.id}')">🗑️</button>
+            </td>
+        </tr>
+    ).join('') || `<tr><td colspan="4" class="text-center">No customers found.</td></tr>;
+}
+
+async function addCustomer() {
+    const name = prompt("Enter Customer Name:");
+    if (!name) return;
+    const phone = prompt("Enter Phone Number:");
+    const address = prompt("Enter Address:");
+
+    const { error } = await supabaseClient.from('customers').insert([{ name, phone, address }]);
+    
+    if (error) {
+        alert("Error adding customer: " + error.message);
+    } else {
+        fetchCustomers(); // Refresh the table
+    }
+}
+
+async function deleteCustomer(id) {
+    if (!confirm("Are you sure you want to delete this customer?")) return;
+    
+    const { error } = await supabaseClient.from('customers').delete().eq('id', id);
+    if (error) {
+        alert("Error deleting customer: " + error.message);
+    } else {
+        fetchCustomers();
+    }
+}
 
     async function logout() {
         // CHANGED: supabaseClient
