@@ -100,6 +100,8 @@
         
         if (moduleName === 'customers') {
             renderCustomerUI(container);
+        } else if (moduleName === 'users') {
+        renderUserUI(container); // New User Management Route
         } else if (moduleName === 'dashboard') {
             container.innerHTML = <div class="module-header"><h2>DASHBOARD</h2></div><p>Welcome to Divya Agro Farms ERP.</p>;
         } else {
@@ -179,9 +181,93 @@
             fetchCustomers();
         }
     }
+// --- USER MANAGEMENT MODULE ---
+function renderUserUI(container) {
+    if (currentUserRole !== 'Admin') {
+        container.innerHTML = <div class="alert alert-danger mt-4">Access Denied. Admins only.</div>;
+        return;
+    }
 
+    container.innerHTML = `
+        <div class="module-header">
+            <h2>User Management</h2>
+            <button class="btn btn-primary" onclick="alert('To create a secure user, use the Supabase Auth Dashboard, then link them in the Profiles table.')">+ Create User</button>
+        </div>
+        <div class="table-responsive">
+            <table class="table table-bordered align-middle">
+                <thead class="table-dark">
+                    <tr>
+                        <th>Username</th>
+                        <th>Password</th>
+                        <th>Role</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="user-list">
+                    <tr><td colspan="5" class="text-center">Loading users...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    `;
+    fetchUsers();
+}
+
+async function fetchUsers() {
+    const { data, error } = await supabaseClient.from('profiles').select('*').order('username');
+    const tbody = document.getElementById('user-list');
+    
+    if (error) {
+        tbody.innerHTML = <tr><td colspan="5" class="text-danger">Error: ${error.message}</td></tr>;
+        return;
+    }
+    
+    tbody.innerHTML = data.map(u => `
+        <tr>
+            <td>${u.username}</td>
+            <td><span class="text-muted">* (Encrypted)</span></td>
+            <td><span class="badge ${u.role === 'Admin' ? 'bg-danger' : 'bg-primary'}">${u.role}</span></td>
+            <td><span class="badge bg-success">${u.status}</span></td>
+            <td>
+                <button class="btn btn-sm btn-outline-secondary">📝 Edit</button>
+                <button class="btn btn-sm btn-outline-danger">🗑️ Delete</button>
+            </td>
+        </tr>
+    ).join('') || `<tr><td colspan="5" class="text-center">No users found.</td></tr>;
+}
     // Boot
-    checkAuth();
+    async function checkAuth() {
+    try {
+        const { data: { session }, error: sessionError } = await supabaseClient.auth.getSession();
+        if (sessionError) throw sessionError;
+        
+        if (!session) {
+            window.location.href = './index.html'; 
+            return;
+        }
+        
+        const { data: profile, error: profileError } = await supabaseClient
+            .from('profiles')
+            .select('role')
+            .eq('id', session.user.id)
+            .single();
+            
+        if (profileError && profileError.code !== 'PGRST116') throw profileError;
+            
+        if (profile) {
+            currentUserRole = profile.role;
+            applyRBAC();
+        }
+        
+        loadModule('dashboard'); 
+    } catch (err) {
+        document.getElementById('app-container').innerHTML = `
+            <div class="alert alert-danger m-4">
+                <strong>Startup Error:</strong> ${err.message}<br>
+                Please check your Developer Console (F12) for syntax errors.
+            </div>`;
+    }
+}
 </script>
     
 </body>
