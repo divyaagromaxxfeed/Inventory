@@ -163,7 +163,19 @@
             window.location.href = './index.html';
         }
 
-        checkAuth();
+       async function checkAuth() {
+    const { data: { session } } = await supabaseClient.auth.getSession();
+    if (!session) return window.location.href = './index.html'; 
+    
+    const { data: profile } = await supabaseClient.from('profiles').select('role').eq('id', session.user.id).single();
+    if (profile && profile.role === 'Admin') {
+        document.querySelectorAll('.admin-only').forEach(el => el.style.display = 'block');
+        loadSettings();
+    } else {
+        // Updated to use standard single quotes to prevent syntax crashes
+        document.querySelector('.main-content').innerHTML = '<div class="alert alert-danger">Access Denied. Administrator privileges required.</div>';
+    }
+}
     </script>
 </body>
 </html>
